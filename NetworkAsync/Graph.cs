@@ -5,13 +5,15 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
-namespace Network
+namespace NetworkAsync
 {
     class Vertex
     {
         public Vertex()
         {
+            this.isInitial = false;
             this.neighbourhoods = new List<Edge>();
+            this.children = new List<Edge>();
         }
 
         public Vertex(int id)
@@ -36,13 +38,16 @@ namespace Network
         public int ID { get; private set; }
         public List<Edge> neighbourhoods ;
         public Edge parent { get; protected set; }
+        public List<Edge> children;
         public bool isInitial { get; set; }
     }
 
     class Edge
     {
         public Edge()
-        { }
+        {
+            isMarked = false;
+        }
 
         public Edge(int v)
             : this()
@@ -66,6 +71,7 @@ namespace Network
         public Vertex from { get; set; }
         public Vertex to { get; set; }
         public int value { get; private set; }
+        public bool isMarked { get; set; }
     }
 
     class Graph
@@ -127,7 +133,7 @@ namespace Network
 #if TRACE_TREAD
             Console.WriteLine("[{0}] ", System.Threading.Thread.CurrentThread.ManagedThreadId);
 #endif
-            Console.WriteLine("{0} -> [{1}] ... {2}:{3}", this.ID, token, e.to.ID, e.value);
+            Console.WriteLine("{0} -> [{1}] ... {2}:{3}", e.from.ID, token, e.to.ID, e.value);
 #endif
             await Task.Delay(e.value);
             return ((Node)e.to).mailbox.Post(Tuple.Create<object, Edge>(token, e));
@@ -143,7 +149,7 @@ namespace Network
 #if TRACE_TREAD
             Console.WriteLine("[{0}] ", System.Threading.Thread.CurrentThread.ManagedThreadId);
 #endif
-            Console.WriteLine("{0} -> [{1}] -> {2}:{3}", e.to.ID, token, e.from.ID, e.value);
+            Console.WriteLine("{0} -> [{1}] -> {2}:{3}", e.from.ID, token, e.to.ID, e.value);
 #endif
             return block;
         }
@@ -155,6 +161,84 @@ namespace Network
         private BufferBlock<object> mailbox;
     }
 
+    class NetworkAsync
+        : Graph
+    {
+        public void Init()
+        {
+            EchoNode v1 = new EchoNode(100);
+            EchoNode v2 = new EchoNode(200);
+            EchoNode v3 = new EchoNode(300);
+            EchoNode v4 = new EchoNode(400);
+
+            UndirectedLink(v1, v2, 0, 100);
+            UndirectedLink(v1, v3, 100, 0);
+            UndirectedLink(v1, v4, 100, 0);
+
+            UndirectedLink(v2, v3, 0, 100);
+            UndirectedLink(v2, v4, 100, 0);
+
+            UndirectedLink(v3, v4, 0, 100);
+            InitialNode = 100;
+            //CidonNode v1 = new CidonNode(1);
+            //CidonNode v2 = new CidonNode(2);
+            //CidonNode v3 = new CidonNode(3);
+            //CidonNode v4 = new CidonNode(4);
+            //CidonNode v5 = new CidonNode(5);
+            //CidonNode v6 = new CidonNode(6);
+
+            //UndirectedLink(v1, v2, 0, 0);
+            //UndirectedLink(v1, v4, 0, 0);
+            //UndirectedLink(v2, v3, 0, 0);
+            //UndirectedLink(v2, v4, 1000, 0);
+
+            //UndirectedLink(v3, v5, 0, 0);
+            //UndirectedLink(v3, v4, 0, 0);
+            //UndirectedLink(v3, v6, 0, 0);
+
+            //UndirectedLink(v5, v6, 100, 0);
+            //UndirectedLink(v4, v5, 0, 0);
+
+            //InitialNode = 1;
+        }
+
+        public async Task Start()
+        {
+            List<Task> tasks = new List<Task>();
+            foreach (int n in vertexs.Keys)
+            {
+                if (n != InitialNode)
+                    //tasks.Add(((CidonNode)vertexs[n]).RunAsync());
+                    tasks.Add(((EchoNode)vertexs[n]).RunAsync());
+            }
+
+            //await ((CidonNode)vertexs[InitialNode]).RunAsync();
+            await ((EchoNode)vertexs[InitialNode]).RunAsync();
+            await Task.WhenAll(tasks);
+
+            Display();
+        }
+
+        public void Display()
+        {
+#if TRACE_SUMMARY
+            Console.WriteLine("node count {0}", vertexNumber());
+            Console.WriteLine("edge count {0}", edgeNumber);
+            Console.WriteLine("message count {0}", Message.messageNumber);
+#endif
+
+            Console.WriteLine();
+
+#if TRACE_PARENT
+            Console.WriteLine("Node Parent");
+            foreach (Vertex n in vertexs.Values)
+            {
+                Console.WriteLine("{0} {1}", n.ID, n.parent.to.ID);
+            }
+#endif
+        }
+    }
+
     class Message
     {
         public Message(int v)
@@ -162,7 +246,7 @@ namespace Network
             this.value = v;
         }
 
-        protected int value;
+        public int value { get; private set; }
 
         public override string ToString()
         {
@@ -172,5 +256,6 @@ namespace Network
         static public int messageNumber = 0;
         static protected internal readonly int MSG_FORWARD = 0;
         static protected internal readonly int MSG_BACKWARD = 1;
+        static protected internal readonly int MSG_VISITED = 2;
     }
 }

@@ -4,13 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Network
+namespace NetworkAsync
 {
     class Program
     {
         static void Main(string[] args)
         {
-            EchoNetwork network = new EchoNetwork();
+            NetworkAsync network = new NetworkAsync();
             network.Init();
             network.Start().Wait();
             Console.ReadLine();
