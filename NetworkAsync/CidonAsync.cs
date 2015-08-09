@@ -27,7 +27,7 @@ namespace NetworkAsync
                     Search();               
                     foreach (Edge n in neighbourhoods)
                     {
-                        if (/*!children.Contains(n) &&*/ n != parent)
+                        if (!children.Contains(n) && n != parent)
                             SendAsync(new Message(Message.MSG_VISITED), n);
                     }
                 }
@@ -46,7 +46,7 @@ namespace NetworkAsync
                             
                             foreach (Edge n in neighbourhoods)
                             {
-                                if (/*!children.Contains(n) && */n != parent)
+                                if (!children.Contains(n) && n != parent)
                                     SendAsync(new Message(Message.MSG_VISITED), n);
                             }
                         }

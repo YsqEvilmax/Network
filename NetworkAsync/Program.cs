@@ -10,7 +10,7 @@ namespace NetworkAsync
     {
         static void Main(string[] args)
         {
-            NetworkAsync network = new NetworkAsync();
+            NetworkAsync<CidonNode> network = new NetworkAsync<CidonNode>();
             network.Init();
             network.Start().Wait();
             Console.ReadLine();

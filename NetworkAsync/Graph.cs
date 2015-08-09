@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using System.IO;
+using System.Diagnostics;
 
 namespace NetworkAsync
 {
@@ -161,75 +163,93 @@ namespace NetworkAsync
         private BufferBlock<object> mailbox;
     }
 
-    class NetworkAsync
+    class NetworkAsync<T>
         : Graph
+        where T :Node
     {
+        public NetworkAsync()
+        {
+            this.timer = new Stopwatch();
+            this.type = typeof(T);
+        }
+
         public void Init()
         {
-            EchoNode v1 = new EchoNode(100);
-            EchoNode v2 = new EchoNode(200);
-            EchoNode v3 = new EchoNode(300);
-            EchoNode v4 = new EchoNode(400);
+            string path = Directory.GetCurrentDirectory() + "\\Network.txt";
+            try
+            {
+                if (!File.Exists(path)) throw new Exception("Invalid path!");
+                else
+                {
+                    using (StreamReader sr = File.OpenText(path))
+                    {
+                        string line;
+                        while((line = sr.ReadLine()) != null)
+                        {
+                            if (line == "" || line[0] == '#') continue;
+                            else
+                            {
+                                string[] indexs = line.Split(' ');
+                                for (int i = 0; i < indexs.Length; i++)
+                                {
+                                    int index = int.Parse(indexs[i]);
+                                    Vertex v = Activator.CreateInstance(type, index) as Vertex;
+                                    vertexs.Add(index, v);
+                                    if (i == 0) InitialNode = index;
+                                }
+                                break;
+                            }
+                        }
 
-            UndirectedLink(v1, v2, 0, 100);
-            UndirectedLink(v1, v3, 100, 0);
-            UndirectedLink(v1, v4, 100, 0);
-
-            UndirectedLink(v2, v3, 0, 100);
-            UndirectedLink(v2, v4, 100, 0);
-
-            UndirectedLink(v3, v4, 0, 100);
-            InitialNode = 100;
-            //CidonNode v1 = new CidonNode(1);
-            //CidonNode v2 = new CidonNode(2);
-            //CidonNode v3 = new CidonNode(3);
-            //CidonNode v4 = new CidonNode(4);
-            //CidonNode v5 = new CidonNode(5);
-            //CidonNode v6 = new CidonNode(6);
-
-            //UndirectedLink(v1, v2, 0, 0);
-            //UndirectedLink(v1, v4, 0, 0);
-            //UndirectedLink(v2, v3, 0, 0);
-            //UndirectedLink(v2, v4, 1000, 0);
-
-            //UndirectedLink(v3, v5, 0, 0);
-            //UndirectedLink(v3, v4, 0, 0);
-            //UndirectedLink(v3, v6, 0, 0);
-
-            //UndirectedLink(v5, v6, 100, 0);
-            //UndirectedLink(v4, v5, 0, 0);
-
-            //InitialNode = 1;
+                        while ((line = sr.ReadLine()) != null)
+                        {
+                            if (line == "" || line[0] == '#') continue;
+                            else
+                            {
+                                string[] indexs = line.Split(' ');
+                                UndirectedLink(vertexs[int.Parse(indexs[0])],
+                                               vertexs[int.Parse(indexs[1])],
+                                               int.Parse(indexs[2]),
+                                               int.Parse(indexs[3]));
+                            }
+                        }
+                    }
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
 
         public async Task Start()
         {
             List<Task> tasks = new List<Task>();
+            timer.Start();
             foreach (int n in vertexs.Keys)
             {
                 if (n != InitialNode)
-                    //tasks.Add(((CidonNode)vertexs[n]).RunAsync());
-                    tasks.Add(((EchoNode)vertexs[n]).RunAsync());
+                    tasks.Add((vertexs[n] as T).RunAsync());
             }
 
-            //await ((CidonNode)vertexs[InitialNode]).RunAsync();
-            await ((EchoNode)vertexs[InitialNode]).RunAsync();
+            await (vertexs[InitialNode] as T).RunAsync();
             await Task.WhenAll(tasks);
-
+            timer.Stop();
             Display();
         }
 
         public void Display()
         {
 #if TRACE_SUMMARY
+            Console.WriteLine();
+            Console.WriteLine("total time {0} ms", timer.ElapsedMilliseconds);
             Console.WriteLine("node count {0}", vertexNumber());
             Console.WriteLine("edge count {0}", edgeNumber);
             Console.WriteLine("message count {0}", Message.messageNumber);
 #endif
 
-            Console.WriteLine();
-
 #if TRACE_PARENT
+            Console.WriteLine();
             Console.WriteLine("Node Parent");
             foreach (Vertex n in vertexs.Values)
             {
@@ -237,6 +257,9 @@ namespace NetworkAsync
             }
 #endif
         }
+
+        public Type type { get; private set; }
+        private Stopwatch timer;
     }
 
     class Message
