@@ -13,6 +13,7 @@ namespace NetworkAsync
     {
         public Vertex()
         {
+            this.decides = 0;
             this.isInitial = false;
             this.neighbourhoods = new List<Edge>();
             this.children = new List<Edge>();
@@ -37,11 +38,21 @@ namespace NetworkAsync
             return e;
         }
 
+        public void Decides()
+        {
+            foreach (Edge n in children)
+            {
+                decides += n.to.decides;
+            }
+            decides++;
+        }
+
         public int ID { get; private set; }
         public List<Edge> neighbourhoods ;
         public Edge parent { get; protected set; }
         public List<Edge> children;
         public bool isInitial { get; set; }
+        public int decides { get; private set; }
     }
 
     class Edge
@@ -125,7 +136,7 @@ namespace NetworkAsync
         public Node(int ID)
             : base(ID)
         {
-            mailbox = new BufferBlock<object>();
+            this.mailbox = new BufferBlock<object>();
         }
 
         public async Task<bool> SendAsync(object token, Edge e)
@@ -151,7 +162,7 @@ namespace NetworkAsync
 #if TRACE_TREAD
             Console.WriteLine("[{0}] ", System.Threading.Thread.CurrentThread.ManagedThreadId);
 #endif
-            Console.WriteLine("{0} -> [{1}] -> {2}:{3}", e.from.ID, token, e.to.ID, e.value);
+            Console.WriteLine("{0} -> [{1}, {2}] -> {3}:{4}", e.from.ID, token, e.from.decides, e.to.ID, e.value);
 #endif
             return block;
         }
@@ -242,6 +253,7 @@ namespace NetworkAsync
         {
 #if TRACE_SUMMARY
             Console.WriteLine();
+            Console.WriteLine("source {0} decides size: {1}", InitialNode, vertexs[InitialNode].decides);
             Console.WriteLine("total time {0} ms", timer.ElapsedMilliseconds);
             Console.WriteLine("node count {0}", vertexNumber());
             Console.WriteLine("edge count {0}", edgeNumber);

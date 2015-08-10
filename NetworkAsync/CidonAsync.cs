@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 
 namespace NetworkAsync
 {
@@ -20,16 +19,11 @@ namespace NetworkAsync
         {
             while(true)
             {
-                if(isInitial && !isDiscovered)
+                if(isInitial && parent == null)
                 {
-                    isDiscovered = true;
                     parent = new Edge(this, new Vertex(0), 0);
-                    Search();               
-                    foreach (Edge n in neighbourhoods)
-                    {
-                        if (!children.Contains(n) && n != parent)
-                            SendAsync(new Message(Message.MSG_VISITED), n);
-                    }
+                    Notify();
+                    Search();
                 }
                 else
                 {
@@ -38,34 +32,32 @@ namespace NetworkAsync
                     Edge e = block.Item2;
                     if (token.value == Message.MSG_FORWARD)
                     {
-                        if (!isDiscovered)
+                        if(children.Count() > 0 && !children.Contains(e))
                         {
-                            isDiscovered = true;
-                            parent = e.piar;
-                            if (!Search()) return;
-                            
-                            foreach (Edge n in neighbourhoods)
-                            {
-                                if (!children.Contains(n) && n != parent)
-                                    SendAsync(new Message(Message.MSG_VISITED), n);
-                            }
+                            e.isMarked = true;
                         }
                         else
                         {
-                            if (!e.isMarked) { e.isMarked = true; e.piar.isMarked = true; }
-                            if (children.Contains(e.piar)) { if (!Search()) return; }
+                            if (parent == null)
+                            {
+                                parent = e.piar;
+                                Notify();
+                                if (!Search()) return;
+                            }
                         }
-
+                        //gerard tel distributed algorithm
                     }
                     else if (token.value == Message.MSG_VISITED)
                     {
-                        if(!e.isMarked) { e.isMarked = true; e.piar.isMarked = true; }
-                        if(children.Contains(e.piar)) { e.isMarked = true; e.piar.isMarked = true; if (!Search()) return; }
+                        e.piar.isMarked = true;
+                        if (children.Contains(e.piar))
+                        {
+                            if (!Search()) return;
+                        }
                     }
                     else if (token.value == Message.MSG_BACKWARD)
                     {
-                        if (!e.isMarked) { e.isMarked = true; e.piar.isMarked = true; }
-                        if (children.Contains(e.piar)) { if (!Search()) return; }
+                        if (!Search()) return;
                     }
                 }
             }          
@@ -73,30 +65,36 @@ namespace NetworkAsync
 
         private bool Search()
         {
-            bool isAllVisited = true;
             foreach (Edge n in neighbourhoods)
             {
                 if (!children.Contains(n) && n != parent && !n.isMarked)
                 {
-                    SendAsync(new Message(Message.MSG_FORWARD), n);
+                    n.isMarked = true;
                     children.Add(n);
-                    isAllVisited = false;
-                    break;
+                    SendAsync(new Message(Message.MSG_FORWARD), n);
+                    return true;
                 }
             }
 
-            if (isAllVisited)
+            if (!isInitial)
             {
-                if (!isInitial)
-                {
-                    SendAsync(new Message(Message.MSG_BACKWARD), parent);
-                }
-                return false;         
+                parent.isMarked = true;
+                SendAsync(new Message(Message.MSG_BACKWARD), parent);              
             }
-            return true;
+            Decides();
+
+            return false;
         }
 
-        public int state { get; set; }
-        public bool isDiscovered;
+        private void Notify()
+        {
+            foreach (Edge n in neighbourhoods)
+            {
+                if (n != parent)
+                {
+                    SendAsync(new Message(Message.MSG_VISITED), n);
+                }
+            }
+        }
     }
 }

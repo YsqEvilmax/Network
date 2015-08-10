@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 
 namespace NetworkAsync
 {
@@ -25,6 +24,7 @@ namespace NetworkAsync
                 Message token = (Message)block.Item1;
                 Edge e = block.Item2;
                 parent = e.piar;
+                e.from.children.Add(e);
                 rec++;
             }
             else
@@ -38,7 +38,6 @@ namespace NetworkAsync
                 if (n != parent)
                 {
                     SendAsync(new Message(Message.MSG_FORWARD), n);
-                    children.Add(n);
                 }                 
             }
 
@@ -46,11 +45,12 @@ namespace NetworkAsync
             {
                 await ReceiveAsync();
             }
-
-            if(!isInitial)
+ 
+            if (!isInitial)
             {
-                SendAsync(new Message(Message.MSG_BACKWARD), parent);
+                SendAsync(new Message(Message.MSG_BACKWARD), parent);                
             }
+            Decides();
         }
     }
 }
